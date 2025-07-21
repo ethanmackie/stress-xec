@@ -1,8 +1,17 @@
 {
+  "scripts": {
+    "build": "tsc",
+    "start": "node dist/stressXec.js"
+  },
+  "main": "dist/stressXec.js",
   "dependencies": {
     "bip39": "^3.1.0",
     "chronik-client": "^3.3.0",
     "ecash-lib": "^3.2.0",
     "ecashaddrjs": "^2.0.0"
+  },
+  "devDependencies": {
+    "@types/node": "^24.0.15",
+    "typescript": "^5.8.3"
   }
 }
