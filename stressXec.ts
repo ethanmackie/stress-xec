@@ -20,8 +20,8 @@ async function initializeWebSocket(
     try {
         const ws = chronik.ws({
             onMessage: (msg: any) => {
-                eventLog.push(`${msg.txid}, ${msg.msgType}`);
-                if (msg.type === 'TX_FINALIZED') {
+                eventLog.push(`${getTimestamp()},${msg.txid},${msg.msgType}`);
+                if (msg.msgType === 'TX_FINALIZED') {
                     ws.unsubscribeFromTxid(msg.txid);
                     finalizedCount++;
                     
@@ -45,11 +45,16 @@ async function initializeWebSocket(
     }
 }
 
+// Helper function to get current timestamp
+function getTimestamp(): string {
+    return new Date().toISOString();
+}
+
 function exportLogsAndExit(eventLog: string[], reason: string) {
     console.log(`\n${reason}`);
-    const csvEventLog = eventLog.join(',\n');
+    const csvContent = 'timestamp,txid,event\n' + eventLog.join('\n');
     const filePath = 'stresslog.csv';
-    fs.writeFileSync(filePath, csvEventLog);
+    fs.writeFileSync(filePath, csvContent);
     console.log(`Exported to ${filePath}`);
     process.exit(0);
 }
@@ -65,13 +70,12 @@ async function runStressTest() {
     
     let processCompleted = false;
     const onAllFinalized = () => {
+        console.log('All transactions finalized, exporting and exiting...');
         processCompleted = true;
         exportLogsAndExit(eventLog, `✅ All ${NUM_TRANSACTIONS} transactions finalized`);
     };
     
     const ws = await initializeWebSocket(txMap, eventLog, NUM_TRANSACTIONS, onAllFinalized);
-    
-    const broadcastedTxids: string[] = [];
     
     for (let i = 0; i < NUM_TRANSACTIONS; i++) {
         const action = {
@@ -82,15 +86,11 @@ async function runStressTest() {
         const txid = tx.tx.txid();
         
         ws.subscribeToTxid(txid);
-        txMap.set(txid, 'Created');
-        eventLog.push(`${txid}, Created`);
-        
-        await tx.broadcast();
-        
-        broadcastedTxids.push(txid);
+    
         txMap.set(txid, 'Broadcast');
-        eventLog.push(`${txid}, Broadcast`);
-        
+        eventLog.push(`${getTimestamp()},${txid},Broadcast`);
+
+        await tx.broadcast();        
         await wallet.sync();
     }
     
@@ -107,6 +107,7 @@ async function runStressTest() {
     });
     
     // Wait for all transactions to be finalized
+    console.log('Waiting for all transactions to finalize...');
     while (!processCompleted) {
         await new Promise(resolve => setTimeout(resolve, 1000));
     }
